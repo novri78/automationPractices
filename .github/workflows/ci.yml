@@ -1,0 +1,83 @@
+name: CI - Tests with video & artifacts
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install dependencies (Chrome, ffmpeg)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip xvfb ffmpeg
+          # install latest Google Chrome
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update -y
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Start Xvfb and record video
+        shell: bash
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 2
+          # start ffmpeg recording of X display; stops when job finishes
+          ffmpeg -video_size 1920x1080 -f x11grab -i :99 -r 15 -codec:v libx264 -preset ultrafast -y automation/test-recording-${{ github.run_id }}-${{ github.job }}.mp4 &
+
+      - name: Run tests (headless)
+        working-directory: automation
+        env:
+          DISPLAY: :99
+        run: |
+          mvn -B -Dheadless=true test || true
+
+      - name: Rerun failed @flaky scenarios (if any)
+        working-directory: automation
+        env:
+          DISPLAY: :99
+        run: |
+          if [ -f target/rerun.txt ] && [ -s target/rerun.txt ]; then
+            echo "Found rerun.txt, attempting selective rerun for @flaky scenarios"
+            # Run selective rerun script which filters rerun.txt by @flaky tag
+            chmod +x scripts/selective-rerun.sh || true
+            scripts/selective-rerun.sh
+          else
+            echo "No rerun.txt or it's empty"
+          fi
+
+      - name: Stop ffmpeg recording (give ffmpeg time to flush)
+        if: always()
+        shell: bash
+        run: |
+          pkill -INT -f "ffmpeg.*test-recording-${{ github.run_id }}-${{ github.job }}.mp4" || true
+          sleep 2 || true
+
+      - name: Upload test video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-recording
+          path: automation/test-recording-${{ github.run_id }}-${{ github.job }}.mp4
+
+      - name: Upload Allure & cucumber reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: |
+            automation/target/allure-results
+            automation/target/cucumber-reports
+            automation/target/rerun.txt
+                      automation/test-recording-${{ github.run_id }}-${{ github.job }}.mp4
