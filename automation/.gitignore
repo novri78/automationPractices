@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Test artifacts and recordings
+automation/allure-results/
+automation/test-recording-*.mp4
