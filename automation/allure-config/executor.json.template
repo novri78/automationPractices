@@ -1,0 +1,7 @@
+{
+  "name": "GITHUB_ACTIONS",
+  "type": "github",
+  "url": "https://github.com/{{repository}}/actions/runs/{{run_id}}",
+  "buildName": "{{job}} #{{run_number}}",
+  "buildUrl": "https://github.com/{{repository}}/actions/runs/{{run_id}}"
+}

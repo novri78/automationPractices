@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Assertion Failure",
+    "messageRegex": "AssertionError|Expected.*but was",
+    "matchedStatuses": [
+      "failed"
+    ]
+  },
+  {
+    "name": "Flaky UI",
+    "messageRegex": "StaleElementReferenceException|TimeoutException|ElementNotInteractableException",
+    "matchedStatuses": [
+      "failed"
+    ]
+  }
+]

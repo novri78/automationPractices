@@ -6,6 +6,7 @@ import io.cucumber.java.Before;
 import io.cucumber.java.After;
 import io.cucumber.java.Scenario;
 import io.qameta.allure.Allure;
+import io.qameta.allure.model.StatusDetails;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 
@@ -47,6 +48,28 @@ public class Hooks {
                 System.out.println("[WARNING] Failed to capture visual state evidence: " + e.getMessage());
             }
         }
+        // If this run is a selective rerun and the scenario eventually passed, mark it flaky for Allure trends
+        try {
+            String rerun = System.getProperty("rerun");
+            if (rerun == null || rerun.isEmpty()) {
+                rerun = System.getenv("RERUN");
+            }
+            if (!scenario.isFailed() && rerun != null && rerun.equalsIgnoreCase("true")) {
+                try {
+                    Allure.getLifecycle().updateTestCase(testResult -> {
+                        StatusDetails sd = testResult.getStatusDetails();
+                        if (sd == null) sd = new StatusDetails();
+                        sd.setFlaky(true);
+                        testResult.setStatusDetails(sd);
+                    });
+                    System.out.println("[INFO] Marked scenario as flaky in Allure (rerun pass): " + scenario.getName());
+                } catch (Exception e) {
+                    System.out.println("[WARNING] Unable to mark test as flaky: " + e.getMessage());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
         // Terminate and clean up the active browser memory stack safely
         DriverFactory.quitDriver();
     }
